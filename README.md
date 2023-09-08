@@ -1,11 +1,12 @@
 # load-balancer
 ---
 
-This repository contains a lightweight and straightforward load balancer implementation that uses the round-robin algorithm. The load balancer is designed to evenly distribute incoming traffic across multiple backend servers.
+This repository contains a lightweight and straightforward load balancer implementation that uses the round-robin algorithm and least connections algorithm. The load balancer is designed to evenly distribute incoming traffic across multiple backend servers.
 
 ## Features
 
 - **Round-Robin Algorithm:** Requests are evenly distributed across backend servers.
+- **Least connections Algorithm:** Requests are going to the server with minimal load.
 - **Healthchecks:** Load balancer uses both passive and active healthchecks. Active one runs every minute.
 
 ## Configuration
