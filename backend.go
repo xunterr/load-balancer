@@ -5,16 +5,26 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 )
 
 type Backend struct {
-	url   *url.URL
-	mu    sync.RWMutex
-	alive bool
-	proxy httputil.ReverseProxy
+	url         *url.URL
+	mu          sync.RWMutex
+	connections uint64
+	alive       bool
+	proxy       httputil.ReverseProxy
+}
+
+func (b *Backend) AddConn() {
+	atomic.AddUint64(&b.connections, 1)
+}
+
+func (b *Backend) RemoveConn() {
+	atomic.AddUint64(&b.connections, ^uint64(0))
 }
 
 func (b *Backend) IsAlive() (alive bool) {
@@ -34,10 +44,10 @@ func (b *Backend) HealthCheck() {
 	conn, err := net.DialTimeout("tcp", b.url.Host, 5*time.Second)
 	if err != nil {
 		b.SetAlive(false)
-		log.Infof("%s is down!\n", b.url.String())
+		log.Infof("%s is down: %s", b.url.String(), err.Error())
 		return
 	}
 	defer conn.Close()
 	b.SetAlive(true)
-	log.Infof("%s is alive!\n", b.url.String())
+	log.Infof("%s is alive!", b.url.String())
 }

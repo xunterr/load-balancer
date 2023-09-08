@@ -42,7 +42,7 @@ func (p *Pool) NextIndex() int {
 	return int(atomic.AddUint64(&p.current, 1) % uint64(len(p.backends)))
 }
 
-func (p *Pool) NextBackend() *Backend {
+func (p *Pool) RoundRobin() *Backend {
 	next := p.NextIndex()
 	for i := next; i < len(p.backends)+next; i++ {
 		idx := i % len(p.backends)
@@ -52,6 +52,16 @@ func (p *Pool) NextBackend() *Backend {
 		}
 	}
 	return nil
+}
+
+func (p *Pool) LeastConns() *Backend {
+	max := 0
+	for i := 0; i < len(p.backends); i++ {
+		if p.backends[i].connections > p.backends[max].connections {
+			max = i
+		}
+	}
+	return p.backends[max]
 }
 
 func (p *Pool) HealthCheck(d time.Duration) {
@@ -90,7 +100,7 @@ func handleError(w http.ResponseWriter, req *http.Request, err error, proxy http
 }
 
 func balance(w http.ResponseWriter, req *http.Request) {
-	b := currentPool.NextBackend()
+	b := currentPool.RoundRobin()
 	if b == nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		log.Errorf("Cant serve %s : No available alive servers", req.URL.String())
@@ -100,7 +110,9 @@ func balance(w http.ResponseWriter, req *http.Request) {
 	req.URL.Host = b.url.Host
 	req.URL.Scheme = b.url.Scheme
 
+	b.AddConn()
 	ctx := context.WithValue(req.Context(), CurrentBackend, b)
 	log.Infof("Serving %s -> [%s]", req.RemoteAddr, req.URL.String())
 	b.proxy.ServeHTTP(w, req.WithContext(ctx))
+	b.RemoveConn()
 }
